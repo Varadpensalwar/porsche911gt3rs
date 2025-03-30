@@ -1,38 +1,248 @@
-.App {
-  text-align: center;
+/* src/App.css */
+:root {
+  --neon-blue: #00f3ff;
+  --neon-pink: #ff00ff;
+  --card-width: 300px;
+  --mobile-width: 74.7mm;
+  --mobile-height: 161.7mm;
 }
 
-.App-logo {
-  height: 40vmin;
-  pointer-events: none;
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  .App-logo {
-    animation: App-logo-spin infinite 20s linear;
-  }
-}
-
-.App-header {
-  background-color: #282c34;
+body {
+  background: #000;
   min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  font-size: calc(10px + 2vmin);
-  color: white;
+  overflow-x: hidden;
+  font-family: 'Arial', sans-serif;
+  position: relative;
 }
 
-.App-link {
-  color: #61dafb;
+.bg-animation {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 0;
+  opacity: 0.3;
+  display: none;
 }
 
-@keyframes App-logo-spin {
-  from {
-    transform: rotate(0deg);
+.bg-animation span {
+  position: absolute;
+  border-radius: 50%;
+  background: linear-gradient(45deg, var(--neon-blue), var(--neon-pink));
+  animation: float 15s linear infinite;
+  opacity: 0.3;
+}
+
+@keyframes float {
+  0% {
+      transform: translateY(0) translateX(0) rotate(0deg);
+      opacity: 0;
   }
-  to {
-    transform: rotate(360deg);
+  50% {
+      opacity: 0.3;
+  }
+  100% {
+      transform: translateY(-100vh) translateX(100vw) rotate(360deg);
+      opacity: 0;
+  }
+}
+
+.video-wall {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(var(--card-width), 1fr));
+  gap: 1.5rem;
+  padding: 2rem;
+  max-width: 2000px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+}
+
+.video-card {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  transition: transform 0.5s ease, box-shadow 0.5s ease;
+  transform: scale(0.98);
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+  background-color: #000;
+  aspect-ratio: 16/9;
+}
+
+.video-card:hover {
+  transform: scale(1.02);
+  box-shadow: 0 0 20px rgba(0, 243, 255, 0.3);
+}
+
+.video-card.active {
+  transform: scale(1.05);
+  box-shadow: 0 0 40px var(--neon-blue);
+  z-index: 10;
+}
+
+.video-wrapper {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(0.5);
+  transition: filter 0.3s ease;
+}
+
+.video-card.active video {
+  filter: grayscale(0);
+}
+
+.card-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(45deg, rgba(0,0,0,0.7), transparent);
+  opacity: 1;
+  transition: opacity 0.3s ease;
+}
+
+.video-card.active .card-overlay {
+  opacity: 0;
+}
+
+.progress-bar {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  width: 0%;
+  background: var(--neon-blue);
+  z-index: 3;
+  transition: width 0.1s linear;
+}
+
+.video-card.active .progress-bar {
+  background: linear-gradient(90deg, var(--neon-blue), var(--neon-pink));
+}
+
+.model-info {
+  position: absolute;
+  bottom: 15px;
+  left: 15px;
+  color: white;
+  font-weight: bold;
+  text-shadow: 0 0 5px rgba(0,0,0,0.8);
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity 0.3s ease, transform 0.3s ease;
+  z-index: 2;
+}
+
+.video-card.active .model-info {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Easter Egg Button */
+.easter-egg-button {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  width: 40px;
+  height: 40px;
+  background-color: #111;
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  z-index: 100;
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.easter-egg-button:hover {
+  opacity: 1;
+  box-shadow: 0 0 10px var(--neon-blue);
+}
+
+.easter-egg-button span {
+  color: var(--neon-blue);
+  font-size: 24px;
+}
+
+/* Easter Egg Animation */
+.easter-egg-active .video-card:not(.active) {
+  animation: colorShift 2s infinite alternate;
+}
+
+@keyframes colorShift {
+  0% {
+      box-shadow: 0 0 20px var(--neon-blue);
+  }
+  50% {
+      box-shadow: 0 0 20px var(--neon-pink);
+  }
+  100% {
+      box-shadow: 0 0 20px var(--neon-blue);
+  }
+}
+
+/* Mobile styles */
+@media (max-width: 768px) {
+  .bg-animation {
+      display: none !important;
+  }
+  
+  .video-wall {
+      grid-template-columns: 1fr;
+      padding: 0;
+      gap: 0;
+      height: 100vh;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+  }
+  
+  .video-card {
+      width: var(--mobile-width);
+      height: var(--mobile-height);
+      max-width: 90vw;
+      max-height: 90vh;
+      border-radius: 12px;
+      aspect-ratio: unset;
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(1);
+      margin: 0;
+      opacity: 0;
+      visibility: hidden;
+  }
+  
+  .video-card.active {
+      opacity: 1;
+      visibility: visible;
+      transform: translate(-50%, -50%) scale(1);
+  }
+  
+  .video-wrapper {
+      height: 100%;
+  }
+  
+  video {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background: #000;
   }
 }
