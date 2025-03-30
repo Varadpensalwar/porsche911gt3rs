@@ -25,7 +25,7 @@
   "orientation": "portrait",
   "screenshots": [
     {
-      "src": "Screenshot2.png.png",
+      "src": "Screenshot2.png",
       "sizes": "375x812",  
       "type": "image/png",
       "form_factor": "narrow"
