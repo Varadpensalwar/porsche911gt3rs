@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 // Remove or comment out the unused gsap import
 // import { gsap } from 'gsap';
 import './App.css';
@@ -15,7 +15,11 @@ function App() {
     const [easterEggActive, setEasterEggActive] = useState(false);
     
     // Track Konami Code for Easter Egg
-    const konamiCodeSequence = ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'];
+    // Using useMemo to prevent recreation on each render
+    const konamiCodeSequence = useMemo(() => 
+        ['ArrowUp', 'ArrowUp', 'ArrowDown', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'ArrowLeft', 'ArrowRight', 'KeyB', 'KeyA'], 
+        []
+    );
     const [konamiCodePosition, setKonamiCodePosition] = useState(0);
     
     // Check if mobile
@@ -113,7 +117,7 @@ function App() {
                 document.body.removeChild(easterEggMessage);
             }, 3000);
         }
-    }, [easterEggActive]); // Added dependency here
+    }, [easterEggActive]);
     
     // Konami Code Handler
     useEffect(() => {
@@ -138,7 +142,7 @@ function App() {
         return () => {
             window.removeEventListener('keydown', handleKeyDown);
         };
-    }, [konamiCodePosition, konamiCodeSequence, activateEasterEgg]); // Added activateEasterEgg to dependency array
+    }, [konamiCodePosition, konamiCodeSequence, activateEasterEgg]);
     
     // Handle user interaction check for autoplay
     useEffect(() => {

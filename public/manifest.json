@@ -3,8 +3,23 @@
   "name": "Porsche 911 GT3 RS",
   "icons": [
     {
-      "src": "favicon.ico",
+      "src": "Porsche_64x64.ico",
       "sizes": "64x64",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "Porsche_32x32.ico",
+      "sizes": "32x32",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "Porsche_24x24.ico",
+      "sizes": "24x24",
+      "type": "image/x-icon"
+    },
+    {
+      "src": "Porsche_16x16.ico",
+      "sizes": "16x16",
       "type": "image/x-icon"
     },
     {
@@ -26,13 +41,13 @@
   "screenshots": [
     {
       "src": "Screenshot2.png",
-      "sizes": "375x812",  
+      "sizes": "375x812",
       "type": "image/png",
       "form_factor": "narrow"
     },
     {
       "src": "Screenshot1.png",
-      "sizes": "1280x720",  
+      "sizes": "1280x720",
       "type": "image/png",
       "form_factor": "wide"
     }
