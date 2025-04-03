@@ -88,29 +88,35 @@ function App() {
         };
     }, [isMobile, handleNextVideo, handlePrevVideo]);
     
-    // Disable pull-to-refresh on mobile
+    // Disable pull-to-refresh on mobile within the app container
     useEffect(() => {
-        const preventPullToRefresh = (e) => {
-            // Prevent the default behavior when touch moves at the top of the page
-            if (window.scrollY === 0 && e.touches[0].screenY > touchStartY) {
+        if (!isMobile) return;
+        
+        const appElement = document.querySelector('.App');
+        if (!appElement) return;
+        
+        let touchStartY = 0;
+        
+        const handleTouchStart = (e) => {
+            touchStartY = e.touches[0].screenY;
+        };
+        
+        const handleTouchMove = (e) => {
+            // Only prevent default if pulling down when already at the top of the app container
+            if (appElement.scrollTop === 0 && e.touches[0].screenY > touchStartY) {
                 e.preventDefault();
             }
         };
         
-        let touchStartY = 0;
-        
-        const recordTouchStart = (e) => {
-            touchStartY = e.touches[0].screenY;
-        };
-        
-        if (isMobile) {
-            document.addEventListener('touchstart', recordTouchStart, { passive: false });
-            document.addEventListener('touchmove', preventPullToRefresh, { passive: false });
-        }
+        // Add event listeners specifically to the app container
+        appElement.addEventListener('touchstart', handleTouchStart, { passive: false });
+        appElement.addEventListener('touchmove', handleTouchMove, { passive: false });
         
         return () => {
-            document.removeEventListener('touchstart', recordTouchStart);
-            document.removeEventListener('touchmove', preventPullToRefresh);
+            if (appElement) {
+                appElement.removeEventListener('touchstart', handleTouchStart);
+                appElement.removeEventListener('touchmove', handleTouchMove);
+            }
         };
     }, [isMobile]);
     
