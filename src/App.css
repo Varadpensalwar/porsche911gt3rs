@@ -246,3 +246,57 @@ video {
       background: #000;
   }
 }
+
+
+
+
+/* Play/Pause Button Styles - Add to your App.css */
+.play-pause-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 4;
+  pointer-events: none; /* Allow clicks to pass through to the card */
+}
+
+.video-card:hover .play-pause-overlay {
+  opacity: 1;
+}
+
+.play-pause-button {
+  width: 60px;
+  height: 60px;
+  background-color: rgba(0, 0, 0, 0.5);
+  border-radius: 50%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+  box-shadow: 0 0 15px rgba(0, 243, 255, 0.5);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.video-card:hover .play-pause-button {
+  transform: scale(1.1);
+  box-shadow: 0 0 20px var(--neon-blue);
+}
+
+.video-card.active:hover .play-pause-overlay {
+  opacity: 1;
+}
+
+/* For mobile, make the button a bit larger and more opaque */
+@media (max-width: 768px) {
+  .play-pause-button {
+    width: 70px;
+    height: 70px;
+    background-color: rgba(0, 0, 0, 0.7);
+  }
+}

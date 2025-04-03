@@ -14,6 +14,7 @@ const VideoCard = ({
     const videoRef = useRef(null);
     const progressRef = useRef(null);
     const [loaded, setLoaded] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
     
     // Check if this is the active card
     const isActive = currentVideoIndex === index;
@@ -35,6 +36,7 @@ const VideoCard = ({
         const handleVideoEnd = () => {
             if (card) {
                 card.classList.remove('active');
+                setIsPlaying(false);
                 
                 if (progressBar) {
                     progressBar.style.width = '0%';
@@ -59,6 +61,8 @@ const VideoCard = ({
         if (video) {
             video.addEventListener('timeupdate', updateProgress);
             video.addEventListener('ended', handleVideoEnd);
+            video.addEventListener('play', () => setIsPlaying(true));
+            video.addEventListener('pause', () => setIsPlaying(false));
             
             // Preload the video if it's the current one or the next one
             if (index === currentVideoIndex || index === (currentVideoIndex + 1) % videoData.length) {
@@ -74,6 +78,8 @@ const VideoCard = ({
             if (video) {
                 video.removeEventListener('timeupdate', updateProgress);
                 video.removeEventListener('ended', handleVideoEnd);
+                video.removeEventListener('play', () => setIsPlaying(true));
+                video.removeEventListener('pause', () => setIsPlaying(false));
             }
         };
     }, [index, currentVideoIndex, videoData, isMobile, loaded, autoplayEnabled, setCurrentVideoIndex]);
@@ -104,18 +110,21 @@ const VideoCard = ({
                 setLoaded(true);
             }
             
-            // Play the video
-            video.currentTime = 0;
-            const playPromise = video.play();
-            
-            if (playPromise !== undefined) {
-                playPromise.catch(error => {
-                    console.error('Video playback error:', error);
-                });
+            // Play the video if autoplay is enabled
+            if (autoplayEnabled) {
+                video.currentTime = 0;
+                const playPromise = video.play();
+                
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.error('Video playback error:', error);
+                    });
+                }
             }
         } else if (!isActive && card) {
             // Remove active state
             card.classList.remove('active');
+            setIsPlaying(false);
             
             if (isMobile) {
                 card.style.opacity = '0';
@@ -127,11 +136,29 @@ const VideoCard = ({
                 video.pause();
             }
         }
-    }, [isActive, index, videoData, isMobile, loaded]);
+    }, [isActive, index, videoData, isMobile, loaded, autoplayEnabled]);
     
-    // Handle click on video card (desktop only)
-    const handleCardClick = () => {
-        if (!isMobile && index !== currentVideoIndex) {
+    // Handle click on video card
+    const handleCardClick = (e) => {
+        // Prevent default behavior
+        e.preventDefault();
+        
+        const video = videoRef.current;
+        
+        if (isActive && video) {
+            // Toggle play/pause for the active video
+            if (video.paused) {
+                const playPromise = video.play();
+                if (playPromise !== undefined) {
+                    playPromise.catch(error => {
+                        console.error('Video playback error:', error);
+                    });
+                }
+            } else {
+                video.pause();
+            }
+        } else if (!isMobile) {
+            // Switch to this card if not on mobile
             setCurrentVideoIndex(index);
         }
     };
@@ -156,6 +183,22 @@ const VideoCard = ({
                 <div className="card-overlay"></div>
                 <div className="progress-bar" ref={progressRef}></div>
                 <div className="model-info">{videoData[index].model}</div>
+                
+                {/* Play/Pause Button Overlay */}
+                <div className="play-pause-overlay">
+                    <div className="play-pause-button">
+                        {isPlaying ? (
+                            <svg viewBox="0 0 24 24" width="100%" height="100%">
+                                <rect x="6" y="4" width="4" height="16" fill="white" />
+                                <rect x="14" y="4" width="4" height="16" fill="white" />
+                            </svg>
+                        ) : (
+                            <svg viewBox="0 0 24 24" width="100%" height="100%">
+                                <path d="M8 5v14l11-7z" fill="white" />
+                            </svg>
+                        )}
+                    </div>
+                </div>
             </div>
         </div>
     );
