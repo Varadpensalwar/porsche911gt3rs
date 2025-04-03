@@ -1,5 +1,5 @@
 // src/App.js
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 // Remove or comment out the unused gsap import
 // import { gsap } from 'gsap';
 import './App.css';
@@ -13,8 +13,13 @@ function App() {
     const [isMobile, setIsMobile] = useState(false);
     const [autoplayEnabled, setAutoplayEnabled] = useState(true);
     const [easterEggActive, setEasterEggActive] = useState(false);
-    const [vibrationIntensity, setVibrationIntensity] = useState('medium'); // 'low', 'medium', 'high'
-    const [vibrationIntervalId, setVibrationIntervalId] = useState(null);
+    const [vibrationIntensity, setVibrationIntensity] = useState('medium');
+    const [isVibrating, setIsVibrating] = useState(false);
+    const audioContextRef = useRef(null);
+    const analyserRef = useRef(null);
+    const sourceNodeRef = useRef(null);
+    const animationFrameRef = useRef(null);
+    const currentVideoRef = useRef(null);
     
     // Track Konami Code for Easter Egg
     // Using useMemo to prevent recreation on each render
@@ -24,92 +29,135 @@ function App() {
     );
     const [konamiCodePosition, setKonamiCodePosition] = useState(0);
     
-    // Create vibration patterns based on intensity
-    const getVibrationPattern = useCallback(() => {
-        // Generate a random variation within the current intensity
-        const randomVariation = () => Math.floor(Math.random() * 30) - 15; // -15 to +15 variation
+    // Initialize audio analyzer
+    const setupAudioAnalyzer = useCallback(() => {
+        if (!isMobile || !('vibrate' in navigator)) return;
         
-        switch(vibrationIntensity) {
-            case 'low':
-                return [
-                    30 + randomVariation(), 
-                    150 + randomVariation(), 
-                    30 + randomVariation()
-                ];
-            case 'high':
-                return [
-                    70 + randomVariation(), 
-                    50 + randomVariation(), 
-                    70 + randomVariation(), 
-                    50 + randomVariation(),
-                    40 + randomVariation()
-                ];
-            case 'medium':
-            default:
-                return [
-                    50 + randomVariation(), 
-                    100 + randomVariation(), 
-                    50 + randomVariation()
-                ];
-        }
-    }, [vibrationIntensity]);
-    
-    // Create a dynamic interval time based on intensity
-    const getVibrationInterval = useCallback(() => {
-        const baseInterval = {
-            'low': 3000,
-            'medium': 2000,
-            'high': 1500
-        }[vibrationIntensity];
-        
-        // Add some randomness to the interval
-        return baseInterval + Math.floor(Math.random() * 1000) - 500; // +/- 500ms variation
-    }, [vibrationIntensity]);
-    
-    // Change vibration intensity randomly
-    const changeVibrationIntensity = useCallback(() => {
-        const intensities = ['low', 'medium', 'high'];
-        
-        // Get a new intensity that's different from the current one
-        let newIntensity;
-        do {
-            newIntensity = intensities[Math.floor(Math.random() * intensities.length)];
-        } while (newIntensity === vibrationIntensity);
-        
-        setVibrationIntensity(newIntensity);
-    }, [vibrationIntensity]);
-    
-    // Setup vibration management for mobile
-    const setupVibration = useCallback(() => {
-        // Clear any existing intervals
-        if (vibrationIntervalId) {
-            clearInterval(vibrationIntervalId);
-        }
-        
-        if (isMobile && 'vibrate' in navigator) {
-            // Initially vibrate to give immediate feedback
-            navigator.vibrate(getVibrationPattern());
+        try {
+            // Create audio context if it doesn't exist
+            if (!audioContextRef.current) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContextRef.current = new AudioContext();
+            }
             
-            // Setup dynamic vibration that changes patterns over time
-            const intervalId = setInterval(() => {
-                navigator.vibrate(getVibrationPattern());
+            // Create analyzer node if it doesn't exist
+            if (!analyserRef.current) {
+                analyserRef.current = audioContextRef.current.createAnalyser();
+                analyserRef.current.fftSize = 32; // Small size for efficiency
+                analyserRef.current.smoothingTimeConstant = 0.5; // Smooth transitions
+            }
+            
+            // Find the current video element
+            const videoElement = document.querySelector('.video-current video');
+            if (!videoElement) return;
+            
+            // Save reference to current video
+            currentVideoRef.current = videoElement;
+            
+            // Clean up previous source if it exists
+            if (sourceNodeRef.current) {
+                sourceNodeRef.current.disconnect();
+            }
+            
+            // Create a new source node from the video element
+            sourceNodeRef.current = audioContextRef.current.createMediaElementSource(videoElement);
+            
+            // Connect the source to the analyzer and then to the destination
+            sourceNodeRef.current.connect(analyserRef.current);
+            analyserRef.current.connect(audioContextRef.current.destination);
+            
+            // Start monitoring audio levels
+            startAudioMonitoring();
+        } catch (error) {
+            console.error("Error setting up audio analyzer:", error);
+        }
+    }, [isMobile]);
+    
+    // Function to start monitoring audio levels
+    const startAudioMonitoring = useCallback(() => {
+        if (!analyserRef.current || !isMobile || !('vibrate' in navigator)) return;
+        
+        const bufferLength = analyserRef.current.frequencyBinCount;
+        const dataArray = new Uint8Array(bufferLength);
+        
+        const analyzeAudio = () => {
+            // Cancel any previous animation frame
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+            
+            // Get frequency data
+            analyserRef.current.getByteFrequencyData(dataArray);
+            
+            // Calculate average volume level (0-255)
+            let sum = 0;
+            for (let i = 0; i < bufferLength; i++) {
+                sum += dataArray[i];
+            }
+            const averageVolume = sum / bufferLength;
+            
+            // Set vibration intensity based on volume
+            let newIntensity;
+            if (averageVolume < 50) {
+                newIntensity = 'low';
+            } else if (averageVolume < 120) {
+                newIntensity = 'medium';
+            } else {
+                newIntensity = 'high';
+            }
+            
+            // Only update and vibrate if intensity changed or not currently vibrating
+            if (newIntensity !== vibrationIntensity || !isVibrating) {
+                setVibrationIntensity(newIntensity);
                 
-                // Occasionally change the vibration intensity (roughly 20% chance)
-                if (Math.random() < 0.2) {
-                    changeVibrationIntensity();
+                // Create vibration pattern based on audio intensity
+                if (averageVolume > 20) { // Threshold to avoid constant vibration on silence
+                    setIsVibrating(true);
+                    
+                    // Create a pattern that mimics the audio intensity
+                    const duration = Math.min(Math.floor(averageVolume), 200); // Cap at 200ms
+                    
+                    // For beat-like feeling, create short bursts for high intensity
+                    let pattern;
+                    if (newIntensity === 'high') {
+                        pattern = [duration, duration / 2];
+                    } else if (newIntensity === 'medium') {
+                        pattern = [duration, duration];
+                    } else {
+                        pattern = [duration / 2];
+                    }
+                    
+                    // Add subtle variations to prevent monotony
+                    if (Math.random() < 0.2) {
+                        pattern = pattern.map(p => p + Math.floor(Math.random() * 20 - 10));
+                    }
+                    
+                    navigator.vibrate(pattern);
+                    
+                    // Reset vibration state after the pattern completes
+                    const totalDuration = pattern.reduce((sum, val) => sum + val, 0);
+                    setTimeout(() => {
+                        setIsVibrating(false);
+                    }, totalDuration + 10);
                 }
-            }, getVibrationInterval());
+            }
             
-            setVibrationIntervalId(intervalId);
-            
-            return () => {
-                clearInterval(intervalId);
-                setVibrationIntervalId(null);
-            };
-        }
-    }, [isMobile, getVibrationPattern, getVibrationInterval, changeVibrationIntensity, vibrationIntervalId]);
+            // Continue monitoring
+            animationFrameRef.current = requestAnimationFrame(analyzeAudio);
+        };
+        
+        // Start the analysis loop
+        analyzeAudio();
+        
+        // Return cleanup function
+        return () => {
+            if (animationFrameRef.current) {
+                cancelAnimationFrame(animationFrameRef.current);
+            }
+        };
+    }, [isMobile, vibrationIntensity, isVibrating]);
     
-    // Check if mobile and setup initial vibration
+    // Check if mobile
     useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth <= 768;
@@ -127,44 +175,54 @@ function App() {
         };
     }, []);
     
-    // Setup vibration when mobile status or intensity changes
+    // Setup audio analyzer when videos change
     useEffect(() => {
-        return setupVibration();
-    }, [isMobile, vibrationIntensity, setupVibration]);
+        if (isMobile) {
+            // Add a slight delay to ensure the video element is ready
+            const timeoutId = setTimeout(() => {
+                setupAudioAnalyzer();
+            }, 500);
+            
+            return () => clearTimeout(timeoutId);
+        }
+    }, [currentVideoIndex, isMobile, setupAudioAnalyzer]);
+    
+    // Clean up audio context on component unmount
+    useEffect(() => {
+        return () => {
+            if (audioContextRef.current) {
+                if (sourceNodeRef.current) {
+                    sourceNodeRef.current.disconnect();
+                }
+                if (animationFrameRef.current) {
+                    cancelAnimationFrame(animationFrameRef.current);
+                }
+                audioContextRef.current.close().catch(err => console.error(err));
+            }
+        };
+    }, []);
     
     // Handle Previous Video
     const handlePrevVideo = useCallback(() => {
         const prevIndex = (currentVideoIndex - 1 + videoData.length) % videoData.length;
         setCurrentVideoIndex(prevIndex);
         
-        // Add a special vibration feedback on video change for mobile
+        // Add a special vibration feedback on video change
         if (isMobile && 'vibrate' in navigator) {
-            // Create a pattern that feels like a "swipe backward"
             navigator.vibrate([80, 40, 120]);
-            
-            // Higher chance of intensity change on interaction
-            if (Math.random() < 0.3) {
-                changeVibrationIntensity();
-            }
         }
-    }, [currentVideoIndex, isMobile, changeVibrationIntensity]);
+    }, [currentVideoIndex, isMobile]);
     
     // Handle Next Video
     const handleNextVideo = useCallback(() => {
         const nextIndex = (currentVideoIndex + 1) % videoData.length;
         setCurrentVideoIndex(nextIndex);
         
-        // Add a special vibration feedback on video change for mobile
+        // Add a special vibration feedback on video change
         if (isMobile && 'vibrate' in navigator) {
-            // Create a pattern that feels like a "swipe forward"
             navigator.vibrate([120, 40, 80]);
-            
-            // Higher chance of intensity change on interaction
-            if (Math.random() < 0.3) {
-                changeVibrationIntensity();
-            }
         }
-    }, [currentVideoIndex, isMobile, changeVibrationIntensity]);
+    }, [currentVideoIndex, isMobile]);
     
     // Touch swipe handlers
     useEffect(() => {
@@ -240,20 +298,14 @@ function App() {
         const newState = !easterEggActive;
         setEasterEggActive(newState);
         
-        // Add a special vibration effect when easter egg is activated on mobile
+        // Add a special vibration effect when easter egg is activated
         if (isMobile && 'vibrate' in navigator) {
             if (newState) {
                 // Create an escalating vibration to signal easter egg activation
                 navigator.vibrate([50, 30, 70, 30, 100, 30, 150, 30, 200]);
-                
-                // Force high intensity when easter egg is active
-                setVibrationIntensity('high');
             } else {
                 // Return to normal with a gentle fade-out vibration
                 navigator.vibrate([200, 50, 150, 50, 100, 50, 70, 50, 50]);
-                
-                // Return to medium intensity when easter egg is deactivated
-                setVibrationIntensity('medium');
             }
         }
         
@@ -308,54 +360,45 @@ function App() {
         };
     }, [konamiCodePosition, konamiCodeSequence, activateEasterEgg]);
     
-    // Handle user interaction check for autoplay
+    // Handle first user interaction to enable audio context
     useEffect(() => {
         const handleUserInteraction = () => {
             setAutoplayEnabled(true);
-            document.removeEventListener('click', handleUserInteraction);
             
-            // Vibrate once when user first interacts, if on mobile
+            // Initialize audio context on first interaction (required by browsers)
+            if (isMobile && !audioContextRef.current) {
+                const AudioContext = window.AudioContext || window.webkitAudioContext;
+                audioContextRef.current = new AudioContext();
+                
+                // Resume audio context if it's suspended
+                if (audioContextRef.current.state === 'suspended') {
+                    audioContextRef.current.resume().then(() => {
+                        console.log('AudioContext resumed');
+                        setupAudioAnalyzer();
+                    }).catch(err => console.error('Failed to resume AudioContext', err));
+                } else {
+                    setupAudioAnalyzer();
+                }
+            }
+            
+            // Vibrate once when user first interacts
             if (isMobile && 'vibrate' in navigator) {
-                // A welcoming vibration pattern
                 navigator.vibrate([100, 50, 150]);
             }
+            
+            document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('touchstart', handleUserInteraction);
         };
         
-        // Add listener for first interaction
+        // Add listeners for first interaction
         document.addEventListener('click', handleUserInteraction);
+        document.addEventListener('touchstart', handleUserInteraction);
         
         return () => {
             document.removeEventListener('click', handleUserInteraction);
+            document.removeEventListener('touchstart', handleUserInteraction);
         };
-    }, [isMobile]);
-    
-    // Add video content-specific vibration patterns
-    useEffect(() => {
-        if (!isMobile || !('vibrate' in navigator)) return;
-        
-        // Get current video data to tailor vibration to content
-        const currentVideo = videoData[currentVideoIndex];
-        
-        // You could analyze the currentVideo object and set different
-        // vibration intensities based on the content type, energy level, etc.
-        if (currentVideo) {
-            // Example logic: tailor vibration based on video properties
-            // This is just an example - adjust based on your videoData structure
-            const videoEnergy = currentVideo.energy || 'medium'; // Assuming there's an 'energy' property
-            
-            // Set vibration intensity based on video content
-            if (videoEnergy === 'high') {
-                setVibrationIntensity('high');
-            } else if (videoEnergy === 'low') {
-                setVibrationIntensity('low');
-            } else {
-                setVibrationIntensity('medium');
-            }
-            
-            // Provide immediate feedback when switching videos
-            navigator.vibrate(getVibrationPattern());
-        }
-    }, [currentVideoIndex, isMobile, getVibrationPattern]);
+    }, [isMobile, setupAudioAnalyzer]);
     
     return (
         <div className={`App ${easterEggActive ? 'easter-egg-active' : ''}`}>
