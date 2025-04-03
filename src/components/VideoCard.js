@@ -15,6 +15,7 @@ const VideoCard = ({
     const progressRef = useRef(null);
     const [loaded, setLoaded] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
+    const [showControls, setShowControls] = useState(false);
     
     // Check if this is the active card
     const isActive = currentVideoIndex === index;
@@ -61,8 +62,17 @@ const VideoCard = ({
         if (video) {
             video.addEventListener('timeupdate', updateProgress);
             video.addEventListener('ended', handleVideoEnd);
-            video.addEventListener('play', () => setIsPlaying(true));
-            video.addEventListener('pause', () => setIsPlaying(false));
+            video.addEventListener('play', () => {
+                setIsPlaying(true);
+                // Hide controls after playback starts
+                setTimeout(() => {
+                    setShowControls(false);
+                }, 1500);
+            });
+            video.addEventListener('pause', () => {
+                setIsPlaying(false);
+                setShowControls(true);
+            });
             
             // Preload the video if it's the current one or the next one
             if (index === currentVideoIndex || index === (currentVideoIndex + 1) % videoData.length) {
@@ -120,6 +130,9 @@ const VideoCard = ({
                         console.error('Video playback error:', error);
                     });
                 }
+            } else {
+                // Show controls if not autoplaying
+                setShowControls(true);
             }
         } else if (!isActive && card) {
             // Remove active state
@@ -138,6 +151,19 @@ const VideoCard = ({
         }
     }, [isActive, index, videoData, isMobile, loaded, autoplayEnabled]);
     
+    // Handle mouse enter/leave for controls
+    const handleMouseEnter = () => {
+        if (isActive) {
+            setShowControls(true);
+        }
+    };
+    
+    const handleMouseLeave = () => {
+        if (isActive && isPlaying) {
+            setShowControls(false);
+        }
+    };
+    
     // Handle click on video card
     const handleCardClick = (e) => {
         // Prevent default behavior
@@ -154,8 +180,15 @@ const VideoCard = ({
                         console.error('Video playback error:', error);
                     });
                 }
+                // Hide controls after a delay when playing
+                setTimeout(() => {
+                    if (!video.paused) {
+                        setShowControls(false);
+                    }
+                }, 1500);
             } else {
                 video.pause();
+                setShowControls(true);
             }
         } else if (!isMobile) {
             // Switch to this card if not on mobile
@@ -168,6 +201,8 @@ const VideoCard = ({
             className={`video-card ${isActive ? 'active' : ''}`}
             ref={cardRef}
             onClick={handleCardClick}
+            onMouseEnter={handleMouseEnter}
+            onMouseLeave={handleMouseLeave}
             style={{
                 opacity: isMobile ? (isActive ? 1 : 0) : 1,
                 visibility: isMobile ? (isActive ? 'visible' : 'hidden') : 'visible'
@@ -185,7 +220,7 @@ const VideoCard = ({
                 <div className="model-info">{videoData[index].model}</div>
                 
                 {/* Play/Pause Button Overlay */}
-                <div className="play-pause-overlay">
+                <div className={`play-pause-overlay ${showControls ? 'show-controls' : ''}`}>
                     <div className="play-pause-button">
                         {isPlaying ? (
                             <svg viewBox="0 0 24 24" width="100%" height="100%">

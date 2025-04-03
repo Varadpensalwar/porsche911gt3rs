@@ -249,7 +249,6 @@ video {
 
 
 
-
 /* Play/Pause Button Styles - Add to your App.css */
 .play-pause-overlay {
   position: absolute;
@@ -264,6 +263,10 @@ video {
   transition: opacity 0.3s ease;
   z-index: 4;
   pointer-events: none; /* Allow clicks to pass through to the card */
+}
+
+.play-pause-overlay.show-controls {
+  opacity: 1;
 }
 
 .video-card:hover .play-pause-overlay {
@@ -288,15 +291,21 @@ video {
   box-shadow: 0 0 20px var(--neon-blue);
 }
 
-.video-card.active:hover .play-pause-overlay {
-  opacity: 1;
-}
-
 /* For mobile, make the button a bit larger and more opaque */
 @media (max-width: 768px) {
   .play-pause-button {
     width: 70px;
     height: 70px;
     background-color: rgba(0, 0, 0, 0.7);
+  }
+  
+  /* Always show controls briefly when switching videos on mobile */
+  .video-card.active .play-pause-overlay {
+    opacity: 1;
+  }
+  
+  /* Add a transition delay for mobile to ensure controls are visible long enough */
+  .play-pause-overlay {
+    transition: opacity 0.5s ease;
   }
 }
