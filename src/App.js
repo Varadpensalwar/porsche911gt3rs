@@ -17,12 +17,15 @@ function App() {
     const [isVibrating, setIsVibrating] = useState(false);
     const [showInstallPrompt, setShowInstallPrompt] = useState(false);
     const [installPromptDismissed, setInstallPromptDismissed] = useState(false);
+    const [isAppInstalled, setIsAppInstalled] = useState(false);
+    const [promptAnimation, setPromptAnimation] = useState('');
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const animationFrameRef = useRef(null);
     const currentVideoRef = useRef(null);
     const deferredPromptRef = useRef(null);
+    const installPromptRef = useRef(null);
 
     // Track Konami Code for Easter Egg
     // Using useMemo to prevent recreation on each render
@@ -153,7 +156,7 @@ function App() {
         }
     }, [isMobile, vibrationIntensity, isVibrating]);
 
-    // Check if mobile and setup install prompt
+    // Check if app is installed and setup install prompt
     useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth <= 768;
@@ -172,10 +175,41 @@ function App() {
             setInstallPromptDismissed(true);
         }
 
+        // Check if app is already installed
+        const checkAppInstalled = () => {
+            // Check if running in standalone mode (PWA installed)
+            const isStandalone = window.matchMedia('(display-mode: standalone)').matches || 
+                                window.navigator.standalone || 
+                                document.referrer.includes('android-app://');
+            
+            setIsAppInstalled(isStandalone);
+            return isStandalone;
+        };
+
+        // Initial installation check
+        const isInstalled = checkAppInstalled();
+
+        // Add listener for display mode changes
+        const mediaQuery = window.matchMedia('(display-mode: standalone)');
+        const handleDisplayModeChange = (e) => {
+            setIsAppInstalled(e.matches);
+        };
+        
+        if (mediaQuery.addEventListener) {
+            mediaQuery.addEventListener('change', handleDisplayModeChange);
+        } else {
+            // Fallback for older browsers
+            mediaQuery.addListener(handleDisplayModeChange);
+        }
+
         // Listen for beforeinstallprompt event
         window.addEventListener('beforeinstallprompt', (e) => {
             // Prevent Chrome 67 and earlier from automatically showing the prompt
             e.preventDefault();
+            
+            // Don't show prompt if app is already installed
+            if (isInstalled) return;
+            
             // Stash the event so it can be triggered later
             deferredPromptRef.current = e;
 
@@ -183,12 +217,47 @@ function App() {
             if (!promptDismissed) {
                 setTimeout(() => {
                     setShowInstallPrompt(true);
+                    // Start with a dramatic entrance animation
+                    setPromptAnimation('entrance');
+                    
+                    // After entrance animation, switch to hover animation
+                    setTimeout(() => {
+                        setPromptAnimation('floating');
+                    }, 1000);
                 }, 5000);
             }
         });
 
+        // Check for app installed event
+        window.addEventListener('appinstalled', () => {
+            // Update state when app is installed
+            setIsAppInstalled(true);
+            setShowInstallPrompt(false);
+            
+            // Show success message
+            const successMessage = document.createElement('div');
+            successMessage.className = 'install-success-message';
+            successMessage.innerHTML = `
+                <div class="success-icon">✓</div>
+                <div class="success-text">App Successfully Installed!</div>
+            `;
+            document.body.appendChild(successMessage);
+            
+            // Remove success message after 3 seconds
+            setTimeout(() => {
+                if (document.body.contains(successMessage)) {
+                    document.body.removeChild(successMessage);
+                }
+            }, 3000);
+        });
+
         return () => {
             window.removeEventListener('resize', checkMobile);
+            if (mediaQuery.removeEventListener) {
+                mediaQuery.removeEventListener('change', handleDisplayModeChange);
+            } else {
+                mediaQuery.removeListener(handleDisplayModeChange);
+            }
         };
     }, []);
 
@@ -219,6 +288,53 @@ function App() {
         };
     }, []);
 
+    // Add animation effects to install prompt
+    useEffect(() => {
+        if (showInstallPrompt && installPromptRef.current) {
+            // Add random particle animations
+            const createParticles = () => {
+                const promptEl = installPromptRef.current;
+                if (!promptEl) return;
+                
+                // Create 5 particles with random properties
+                for (let i = 0; i < 5; i++) {
+                    const particle = document.createElement('span');
+                    particle.className = 'prompt-particle';
+                    
+                    // Random position
+                    const size = Math.random() * 10 + 5;
+                    particle.style.width = `${size}px`;
+                    particle.style.height = `${size}px`;
+                    particle.style.left = `${Math.random() * 100}%`;
+                    particle.style.top = `${Math.random() * 100}%`;
+                    
+                    // Random color
+                    const hue = Math.random() * 60 + 250; // Blue to Purple range
+                    particle.style.backgroundColor = `hsl(${hue}, 100%, 70%)`;
+                    
+                    // Random animation
+                    const duration = Math.random() * 3 + 2;
+                    particle.style.animation = `particleFloat ${duration}s infinite ease-in-out alternate`;
+                    
+                    promptEl.appendChild(particle);
+                    
+                    // Remove particles after some time to prevent cluttering
+                    setTimeout(() => {
+                        if (promptEl.contains(particle)) {
+                            promptEl.removeChild(particle);
+                        }
+                    }, duration * 1000);
+                }
+            };
+            
+            // Create particles initially and periodically
+            createParticles();
+            const particleInterval = setInterval(createParticles, 2000);
+            
+            return () => clearInterval(particleInterval);
+        }
+    }, [showInstallPrompt]);
+
     // Handle Previous Video
     const handlePrevVideo = useCallback(() => {
         const prevIndex = (currentVideoIndex - 1 + videoData.length) % videoData.length;
@@ -243,33 +359,57 @@ function App() {
 
     // Handle Install Prompt
     const handleInstallClick = () => {
-        // Hide our custom install prompt
-        setShowInstallPrompt(false);
-
-        // Show the browser's install prompt
-        if (deferredPromptRef.current) {
-            deferredPromptRef.current.prompt();
-            deferredPromptRef.current.userChoice.then((choiceResult) => {
-                if (choiceResult.outcome === 'accepted') {
-                    console.log('User accepted the install prompt');
-                } else {
-                    console.log('User dismissed the install prompt');
-                }
-                deferredPromptRef.current = null;
-            });
-        }
+        // Change animation to exit before hiding
+        setPromptAnimation('exit');
+        
+        // Hide our custom install prompt after animation
+        setTimeout(() => {
+            setShowInstallPrompt(false);
+            
+            // Show the browser's install prompt
+            if (deferredPromptRef.current) {
+                deferredPromptRef.current.prompt();
+                deferredPromptRef.current.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('User accepted the install prompt');
+                    } else {
+                        console.log('User dismissed the install prompt');
+                    }
+                    deferredPromptRef.current = null;
+                });
+            }
+        }, 500);
     };
 
     // Handle Close Install Prompt
     const handleCloseInstallPrompt = () => {
-        setShowInstallPrompt(false);
-        setInstallPromptDismissed(true);
-        localStorage.setItem('installPromptDismissed', 'true');
+        // Change animation to exit before hiding
+        setPromptAnimation('exit');
+        
+        // Hide with animation
+        setTimeout(() => {
+            setShowInstallPrompt(false);
+            setInstallPromptDismissed(true);
+            localStorage.setItem('installPromptDismissed', 'true');
 
-        // Remember user's choice for 7 days
-        const expiryDate = new Date();
-        expiryDate.setDate(expiryDate.getDate() + 7);
-        localStorage.setItem('installPromptExpiry', expiryDate.toISOString());
+            // Remember user's choice for 7 days
+            const expiryDate = new Date();
+            expiryDate.setDate(expiryDate.getDate() + 7);
+            localStorage.setItem('installPromptExpiry', expiryDate.toISOString());
+        }, 500);
+    };
+
+    // Prompt hover animation effect
+    const handlePromptHover = () => {
+        if (promptAnimation === 'floating') {
+            setPromptAnimation('hover');
+        }
+    };
+
+    const handlePromptLeave = () => {
+        if (promptAnimation === 'hover') {
+            setPromptAnimation('floating');
+        }
     };
 
     // Check if prompt should be shown again after expiry
@@ -482,32 +622,50 @@ function App() {
                 ))}
             </div>
             
-            {isMobile && showInstallPrompt && !installPromptDismissed && (
-                <div className="install-prompt">
+            {isMobile && showInstallPrompt && !installPromptDismissed && !isAppInstalled && (
+                <div 
+                    className={`install-prompt animation-${promptAnimation}`}
+                    ref={installPromptRef}
+                    onMouseEnter={handlePromptHover}
+                    onMouseLeave={handlePromptLeave}
+                >
                     <div className="install-prompt-content">
-                        {/* Funky animated emojis */}
-                        <span className="emoji-funk">🚀</span>
-                        <span className="emoji-funk">✨</span>
-                        <span className="emoji-funk">🔥</span>
-
-                        <div className="install-prompt-icon">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 2v12M19 9l-7 7-7-7" />
-                                <rect x="5" y="15" width="14" height="7" rx="2" />
-                            </svg>
-                        </div>
-                        <div className="install-prompt-text">
-                            <h3>Add to Home Screen</h3>
-                            <p>Get the full experience with our app!</p>
-                        </div>
-                        <div className="install-prompt-actions">
-                            <button className="install-btn" onClick={handleInstallClick}>Install Now</button>
-                            <button className="close-btn" onClick={handleCloseInstallPrompt}>
-                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                    <line x1="18" y1="6" x2="6" y2="18" />
-                                    <line x1="6" y1="6" x2="18" y2="18" />
-                                </svg>
-                            </button>
+                        {/* 3D Rotation container */}
+                        <div className="install-prompt-3d-container">
+                            {/* Particle effects */}
+                            <div className="particles-container"></div>
+                            
+                            {/* Main content */}
+                            <div className="install-prompt-icon">
+                                <div className="icon-3d-wrapper">
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M12 2v12M19 9l-7 7-7-7" />
+                                        <rect x="5" y="15" width="14" height="7" rx="2" />
+                                    </svg>
+                                </div>
+                            </div>
+                            <div className="install-prompt-text">
+                                <h3>Experience the App</h3>
+                                <p>Add to your home screen for the full immersive experience!</p>
+                            </div>
+                            <div className="install-prompt-actions">
+                                <button className="install-btn" onClick={handleInstallClick}>
+                                    <span className="btn-text">Install Now</span>
+                                    <span className="btn-shine"></span>
+                                </button>
+                                <button className="close-btn" onClick={handleCloseInstallPrompt}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                        <line x1="18" y1="6" x2="6" y2="18" />
+                                        <line x1="6" y1="6" x2="18" y2="18" />
+                                    </svg>
+                                </button>
+                            </div>
+                            
+                            {/* Glowing borders */}
+                            <div className="glowing-border top"></div>
+                            <div className="glowing-border right"></div>
+                            <div className="glowing-border bottom"></div>
+                            <div className="glowing-border left"></div>
                         </div>
                     </div>
                 </div>
