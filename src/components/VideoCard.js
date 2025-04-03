@@ -208,8 +208,8 @@ const VideoCard = ({
                 <div className="progress-bar" ref={progressRef}></div>
                 <div className="model-info">{videoData[index].model}</div>
                 
-                {/* Play/Pause Button Overlay - Only show when NOT playing */}
-                {!isPlaying && (
+                {/* Play/Pause Button Overlay - Only show when active AND not playing */}
+                {isActive && !isPlaying && (
                     <div className="play-pause-overlay show-controls">
                         <div className="play-pause-button">
                             <svg viewBox="0 0 24 24" width="100%" height="100%">
