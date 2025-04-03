@@ -15,7 +15,6 @@ const VideoCard = ({
     const progressRef = useRef(null);
     const [loaded, setLoaded] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [showControls, setShowControls] = useState(false);
     
     // Check if this is the active card
     const isActive = currentVideoIndex === index;
@@ -64,12 +63,11 @@ const VideoCard = ({
             video.addEventListener('ended', handleVideoEnd);
             video.addEventListener('play', () => {
                 setIsPlaying(true);
-                // Immediately hide controls when playback starts
-                setShowControls(false);
+                // Controls are automatically hidden by the conditional rendering
             });
             video.addEventListener('pause', () => {
                 setIsPlaying(false);
-                setShowControls(true);
+                // Controls are automatically shown by the conditional rendering
             });
             
             // Preload the video if it's the current one or the next one
@@ -128,12 +126,9 @@ const VideoCard = ({
                         console.error('Video playback error:', error);
                     });
                 }
-                // Hide controls when autoplaying
-                setShowControls(false);
-            } else {
-                // Show controls if not autoplaying
-                setShowControls(true);
+                // Controls visibility is handled by conditional rendering based on isPlaying
             }
+            // Controls visibility is handled by conditional rendering based on isPlaying
         } else if (!isActive && card) {
             // Remove active state
             card.classList.remove('active');
@@ -151,17 +146,13 @@ const VideoCard = ({
         }
     }, [isActive, index, videoData, isMobile, loaded, autoplayEnabled]);
     
-    // Handle mouse enter/leave for controls
+    // Handle mouse enter/leave for controls - not needed anymore since we only show controls when paused
     const handleMouseEnter = () => {
-        if (isActive) {
-            setShowControls(true);
-        }
+        // Controls visibility now depends only on play state
     };
     
     const handleMouseLeave = () => {
-        if (isActive && isPlaying) {
-            setShowControls(false);
-        }
+        // Controls visibility now depends only on play state
     };
     
     // Handle click on video card
@@ -177,8 +168,7 @@ const VideoCard = ({
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
                     playPromise.then(() => {
-                        // Immediately hide controls when play is successful
-                        setShowControls(false);
+                        // Controls visibility is handled by setting isPlaying
                         setIsPlaying(true);
                     }).catch(error => {
                         console.error('Video playback error:', error);
@@ -186,7 +176,7 @@ const VideoCard = ({
                 }
             } else {
                 video.pause();
-                setShowControls(true);
+                // Don't need to set controls visibility as it's handled by isPlaying state
                 setIsPlaying(false);
             }
         } else if (!isMobile) {
@@ -218,21 +208,16 @@ const VideoCard = ({
                 <div className="progress-bar" ref={progressRef}></div>
                 <div className="model-info">{videoData[index].model}</div>
                 
-                {/* Play/Pause Button Overlay */}
-                <div className={`play-pause-overlay ${showControls ? 'show-controls' : ''}`}>
-                    <div className="play-pause-button">
-                        {isPlaying ? (
-                            <svg viewBox="0 0 24 24" width="100%" height="100%">
-                                <rect x="6" y="4" width="4" height="16" fill="white" />
-                                <rect x="14" y="4" width="4" height="16" fill="white" />
-                            </svg>
-                        ) : (
+                {/* Play/Pause Button Overlay - Only show when NOT playing */}
+                {!isPlaying && (
+                    <div className="play-pause-overlay show-controls">
+                        <div className="play-pause-button">
                             <svg viewBox="0 0 24 24" width="100%" height="100%">
                                 <path d="M8 5v14l11-7z" fill="white" />
                             </svg>
-                        )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
         </div>
     );
