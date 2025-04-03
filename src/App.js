@@ -13,6 +13,8 @@ function App() {
     const [isMobile, setIsMobile] = useState(false);
     const [autoplayEnabled, setAutoplayEnabled] = useState(true);
     const [easterEggActive, setEasterEggActive] = useState(false);
+    const [vibrationIntensity, setVibrationIntensity] = useState('medium'); // 'low', 'medium', 'high'
+    const [vibrationIntervalId, setVibrationIntervalId] = useState(null);
     
     // Track Konami Code for Easter Egg
     // Using useMemo to prevent recreation on each render
@@ -22,57 +24,147 @@ function App() {
     );
     const [konamiCodePosition, setKonamiCodePosition] = useState(0);
     
-    // Check if mobile and setup vibration
+    // Create vibration patterns based on intensity
+    const getVibrationPattern = useCallback(() => {
+        // Generate a random variation within the current intensity
+        const randomVariation = () => Math.floor(Math.random() * 30) - 15; // -15 to +15 variation
+        
+        switch(vibrationIntensity) {
+            case 'low':
+                return [
+                    30 + randomVariation(), 
+                    150 + randomVariation(), 
+                    30 + randomVariation()
+                ];
+            case 'high':
+                return [
+                    70 + randomVariation(), 
+                    50 + randomVariation(), 
+                    70 + randomVariation(), 
+                    50 + randomVariation(),
+                    40 + randomVariation()
+                ];
+            case 'medium':
+            default:
+                return [
+                    50 + randomVariation(), 
+                    100 + randomVariation(), 
+                    50 + randomVariation()
+                ];
+        }
+    }, [vibrationIntensity]);
+    
+    // Create a dynamic interval time based on intensity
+    const getVibrationInterval = useCallback(() => {
+        const baseInterval = {
+            'low': 3000,
+            'medium': 2000,
+            'high': 1500
+        }[vibrationIntensity];
+        
+        // Add some randomness to the interval
+        return baseInterval + Math.floor(Math.random() * 1000) - 500; // +/- 500ms variation
+    }, [vibrationIntensity]);
+    
+    // Change vibration intensity randomly
+    const changeVibrationIntensity = useCallback(() => {
+        const intensities = ['low', 'medium', 'high'];
+        
+        // Get a new intensity that's different from the current one
+        let newIntensity;
+        do {
+            newIntensity = intensities[Math.floor(Math.random() * intensities.length)];
+        } while (newIntensity === vibrationIntensity);
+        
+        setVibrationIntensity(newIntensity);
+    }, [vibrationIntensity]);
+    
+    // Setup vibration management for mobile
+    const setupVibration = useCallback(() => {
+        // Clear any existing intervals
+        if (vibrationIntervalId) {
+            clearInterval(vibrationIntervalId);
+        }
+        
+        if (isMobile && 'vibrate' in navigator) {
+            // Initially vibrate to give immediate feedback
+            navigator.vibrate(getVibrationPattern());
+            
+            // Setup dynamic vibration that changes patterns over time
+            const intervalId = setInterval(() => {
+                navigator.vibrate(getVibrationPattern());
+                
+                // Occasionally change the vibration intensity (roughly 20% chance)
+                if (Math.random() < 0.2) {
+                    changeVibrationIntensity();
+                }
+            }, getVibrationInterval());
+            
+            setVibrationIntervalId(intervalId);
+            
+            return () => {
+                clearInterval(intervalId);
+                setVibrationIntervalId(null);
+            };
+        }
+    }, [isMobile, getVibrationPattern, getVibrationInterval, changeVibrationIntensity, vibrationIntervalId]);
+    
+    // Check if mobile and setup initial vibration
     useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth <= 768;
             setIsMobile(isMobileDevice);
-            
-            // Initialize vibration pattern if on mobile
-            if (isMobileDevice && 'vibrate' in navigator) {
-                // Setup continuous vibration pattern (similar to grok.com)
-                // Pattern: vibrate for 50ms, pause for 100ms, vibrate for 50ms, longer pause for 1000ms
-                const vibrateInterval = setInterval(() => {
-                    navigator.vibrate([50, 100, 50]);
-                }, 2000); // Repeat every 2 seconds
-                
-                return () => clearInterval(vibrateInterval);
-            }
         };
         
         // Initial check
-        const cleanupFunction = checkMobile();
+        checkMobile();
         
         // Add listener for window resize
         window.addEventListener('resize', checkMobile);
         
         return () => {
             window.removeEventListener('resize', checkMobile);
-            if (cleanupFunction) cleanupFunction();
         };
     }, []);
+    
+    // Setup vibration when mobile status or intensity changes
+    useEffect(() => {
+        return setupVibration();
+    }, [isMobile, vibrationIntensity, setupVibration]);
     
     // Handle Previous Video
     const handlePrevVideo = useCallback(() => {
         const prevIndex = (currentVideoIndex - 1 + videoData.length) % videoData.length;
         setCurrentVideoIndex(prevIndex);
         
-        // Add a short vibration feedback on video change for mobile
+        // Add a special vibration feedback on video change for mobile
         if (isMobile && 'vibrate' in navigator) {
-            navigator.vibrate(100);
+            // Create a pattern that feels like a "swipe backward"
+            navigator.vibrate([80, 40, 120]);
+            
+            // Higher chance of intensity change on interaction
+            if (Math.random() < 0.3) {
+                changeVibrationIntensity();
+            }
         }
-    }, [currentVideoIndex, isMobile]);
+    }, [currentVideoIndex, isMobile, changeVibrationIntensity]);
     
     // Handle Next Video
     const handleNextVideo = useCallback(() => {
         const nextIndex = (currentVideoIndex + 1) % videoData.length;
         setCurrentVideoIndex(nextIndex);
         
-        // Add a short vibration feedback on video change for mobile
+        // Add a special vibration feedback on video change for mobile
         if (isMobile && 'vibrate' in navigator) {
-            navigator.vibrate(100);
+            // Create a pattern that feels like a "swipe forward"
+            navigator.vibrate([120, 40, 80]);
+            
+            // Higher chance of intensity change on interaction
+            if (Math.random() < 0.3) {
+                changeVibrationIntensity();
+            }
         }
-    }, [currentVideoIndex, isMobile]);
+    }, [currentVideoIndex, isMobile, changeVibrationIntensity]);
     
     // Touch swipe handlers
     useEffect(() => {
@@ -148,9 +240,21 @@ function App() {
         const newState = !easterEggActive;
         setEasterEggActive(newState);
         
-        // Add stronger vibration when easter egg is activated on mobile
+        // Add a special vibration effect when easter egg is activated on mobile
         if (isMobile && 'vibrate' in navigator) {
-            navigator.vibrate(newState ? [200, 100, 200, 100, 400] : 100);
+            if (newState) {
+                // Create an escalating vibration to signal easter egg activation
+                navigator.vibrate([50, 30, 70, 30, 100, 30, 150, 30, 200]);
+                
+                // Force high intensity when easter egg is active
+                setVibrationIntensity('high');
+            } else {
+                // Return to normal with a gentle fade-out vibration
+                navigator.vibrate([200, 50, 150, 50, 100, 50, 70, 50, 50]);
+                
+                // Return to medium intensity when easter egg is deactivated
+                setVibrationIntensity('medium');
+            }
         }
         
         if (newState) {
@@ -212,7 +316,8 @@ function App() {
             
             // Vibrate once when user first interacts, if on mobile
             if (isMobile && 'vibrate' in navigator) {
-                navigator.vibrate(200);
+                // A welcoming vibration pattern
+                navigator.vibrate([100, 50, 150]);
             }
         };
         
@@ -223,6 +328,34 @@ function App() {
             document.removeEventListener('click', handleUserInteraction);
         };
     }, [isMobile]);
+    
+    // Add video content-specific vibration patterns
+    useEffect(() => {
+        if (!isMobile || !('vibrate' in navigator)) return;
+        
+        // Get current video data to tailor vibration to content
+        const currentVideo = videoData[currentVideoIndex];
+        
+        // You could analyze the currentVideo object and set different
+        // vibration intensities based on the content type, energy level, etc.
+        if (currentVideo) {
+            // Example logic: tailor vibration based on video properties
+            // This is just an example - adjust based on your videoData structure
+            const videoEnergy = currentVideo.energy || 'medium'; // Assuming there's an 'energy' property
+            
+            // Set vibration intensity based on video content
+            if (videoEnergy === 'high') {
+                setVibrationIntensity('high');
+            } else if (videoEnergy === 'low') {
+                setVibrationIntensity('low');
+            } else {
+                setVibrationIntensity('medium');
+            }
+            
+            // Provide immediate feedback when switching videos
+            navigator.vibrate(getVibrationPattern());
+        }
+    }, [currentVideoIndex, isMobile, getVibrationPattern]);
     
     return (
         <div className={`App ${easterEggActive ? 'easter-egg-active' : ''}`}>
