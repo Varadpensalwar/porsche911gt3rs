@@ -29,7 +29,7 @@ function App() {
     );
     const [konamiCodePosition, setKonamiCodePosition] = useState(0);
     
-    // Initialize audio analyzer
+    // Initialize audio analyzer - with the startAudioMonitoring function moved inside
     const setupAudioAnalyzer = useCallback(() => {
         if (!isMobile || !('vibrate' in navigator)) return;
         
@@ -66,95 +66,88 @@ function App() {
             sourceNodeRef.current.connect(analyserRef.current);
             analyserRef.current.connect(audioContextRef.current.destination);
             
+            // Define startAudioMonitoring here (locally within setupAudioAnalyzer)
+            const startAudioMonitoring = () => {
+                if (!analyserRef.current || !isMobile || !('vibrate' in navigator)) return;
+                
+                const bufferLength = analyserRef.current.frequencyBinCount;
+                const dataArray = new Uint8Array(bufferLength);
+                
+                const analyzeAudio = () => {
+                    // Cancel any previous animation frame
+                    if (animationFrameRef.current) {
+                        cancelAnimationFrame(animationFrameRef.current);
+                    }
+                    
+                    // Get frequency data
+                    analyserRef.current.getByteFrequencyData(dataArray);
+                    
+                    // Calculate average volume level (0-255)
+                    let sum = 0;
+                    for (let i = 0; i < bufferLength; i++) {
+                        sum += dataArray[i];
+                    }
+                    const averageVolume = sum / bufferLength;
+                    
+                    // Set vibration intensity based on volume
+                    let newIntensity;
+                    if (averageVolume < 50) {
+                        newIntensity = 'low';
+                    } else if (averageVolume < 120) {
+                        newIntensity = 'medium';
+                    } else {
+                        newIntensity = 'high';
+                    }
+                    
+                    // Only update and vibrate if intensity changed or not currently vibrating
+                    if (newIntensity !== vibrationIntensity || !isVibrating) {
+                        setVibrationIntensity(newIntensity);
+                        
+                        // Create vibration pattern based on audio intensity
+                        if (averageVolume > 20) { // Threshold to avoid constant vibration on silence
+                            setIsVibrating(true);
+                            
+                            // Create a pattern that mimics the audio intensity
+                            const duration = Math.min(Math.floor(averageVolume), 200); // Cap at 200ms
+                            
+                            // For beat-like feeling, create short bursts for high intensity
+                            let pattern;
+                            if (newIntensity === 'high') {
+                                pattern = [duration, duration / 2];
+                            } else if (newIntensity === 'medium') {
+                                pattern = [duration, duration];
+                            } else {
+                                pattern = [duration / 2];
+                            }
+                            
+                            // Add subtle variations to prevent monotony
+                            if (Math.random() < 0.2) {
+                                pattern = pattern.map(p => p + Math.floor(Math.random() * 20 - 10));
+                            }
+                            
+                            navigator.vibrate(pattern);
+                            
+                            // Reset vibration state after the pattern completes
+                            const totalDuration = pattern.reduce((sum, val) => sum + val, 0);
+                            setTimeout(() => {
+                                setIsVibrating(false);
+                            }, totalDuration + 10);
+                        }
+                    }
+                    
+                    // Continue monitoring
+                    animationFrameRef.current = requestAnimationFrame(analyzeAudio);
+                };
+                
+                // Start the analysis loop
+                analyzeAudio();
+            };
+            
             // Start monitoring audio levels
             startAudioMonitoring();
         } catch (error) {
             console.error("Error setting up audio analyzer:", error);
         }
-    }, [isMobile]);
-    
-    // Function to start monitoring audio levels
-    const startAudioMonitoring = useCallback(() => {
-        if (!analyserRef.current || !isMobile || !('vibrate' in navigator)) return;
-        
-        const bufferLength = analyserRef.current.frequencyBinCount;
-        const dataArray = new Uint8Array(bufferLength);
-        
-        const analyzeAudio = () => {
-            // Cancel any previous animation frame
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-            
-            // Get frequency data
-            analyserRef.current.getByteFrequencyData(dataArray);
-            
-            // Calculate average volume level (0-255)
-            let sum = 0;
-            for (let i = 0; i < bufferLength; i++) {
-                sum += dataArray[i];
-            }
-            const averageVolume = sum / bufferLength;
-            
-            // Set vibration intensity based on volume
-            let newIntensity;
-            if (averageVolume < 50) {
-                newIntensity = 'low';
-            } else if (averageVolume < 120) {
-                newIntensity = 'medium';
-            } else {
-                newIntensity = 'high';
-            }
-            
-            // Only update and vibrate if intensity changed or not currently vibrating
-            if (newIntensity !== vibrationIntensity || !isVibrating) {
-                setVibrationIntensity(newIntensity);
-                
-                // Create vibration pattern based on audio intensity
-                if (averageVolume > 20) { // Threshold to avoid constant vibration on silence
-                    setIsVibrating(true);
-                    
-                    // Create a pattern that mimics the audio intensity
-                    const duration = Math.min(Math.floor(averageVolume), 200); // Cap at 200ms
-                    
-                    // For beat-like feeling, create short bursts for high intensity
-                    let pattern;
-                    if (newIntensity === 'high') {
-                        pattern = [duration, duration / 2];
-                    } else if (newIntensity === 'medium') {
-                        pattern = [duration, duration];
-                    } else {
-                        pattern = [duration / 2];
-                    }
-                    
-                    // Add subtle variations to prevent monotony
-                    if (Math.random() < 0.2) {
-                        pattern = pattern.map(p => p + Math.floor(Math.random() * 20 - 10));
-                    }
-                    
-                    navigator.vibrate(pattern);
-                    
-                    // Reset vibration state after the pattern completes
-                    const totalDuration = pattern.reduce((sum, val) => sum + val, 0);
-                    setTimeout(() => {
-                        setIsVibrating(false);
-                    }, totalDuration + 10);
-                }
-            }
-            
-            // Continue monitoring
-            animationFrameRef.current = requestAnimationFrame(analyzeAudio);
-        };
-        
-        // Start the analysis loop
-        analyzeAudio();
-        
-        // Return cleanup function
-        return () => {
-            if (animationFrameRef.current) {
-                cancelAnimationFrame(animationFrameRef.current);
-            }
-        };
     }, [isMobile, vibrationIntensity, isVibrating]);
     
     // Check if mobile
