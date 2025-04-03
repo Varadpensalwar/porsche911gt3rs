@@ -22,20 +22,33 @@ function App() {
     );
     const [konamiCodePosition, setKonamiCodePosition] = useState(0);
     
-    // Check if mobile
+    // Check if mobile and setup vibration
     useEffect(() => {
         const checkMobile = () => {
-            setIsMobile(window.innerWidth <= 768);
+            const isMobileDevice = window.innerWidth <= 768;
+            setIsMobile(isMobileDevice);
+            
+            // Initialize vibration pattern if on mobile
+            if (isMobileDevice && 'vibrate' in navigator) {
+                // Setup continuous vibration pattern (similar to grok.com)
+                // Pattern: vibrate for 50ms, pause for 100ms, vibrate for 50ms, longer pause for 1000ms
+                const vibrateInterval = setInterval(() => {
+                    navigator.vibrate([50, 100, 50]);
+                }, 2000); // Repeat every 2 seconds
+                
+                return () => clearInterval(vibrateInterval);
+            }
         };
         
         // Initial check
-        checkMobile();
+        const cleanupFunction = checkMobile();
         
         // Add listener for window resize
         window.addEventListener('resize', checkMobile);
         
         return () => {
             window.removeEventListener('resize', checkMobile);
+            if (cleanupFunction) cleanupFunction();
         };
     }, []);
     
@@ -43,13 +56,23 @@ function App() {
     const handlePrevVideo = useCallback(() => {
         const prevIndex = (currentVideoIndex - 1 + videoData.length) % videoData.length;
         setCurrentVideoIndex(prevIndex);
-    }, [currentVideoIndex]);
+        
+        // Add a short vibration feedback on video change for mobile
+        if (isMobile && 'vibrate' in navigator) {
+            navigator.vibrate(100);
+        }
+    }, [currentVideoIndex, isMobile]);
     
     // Handle Next Video
     const handleNextVideo = useCallback(() => {
         const nextIndex = (currentVideoIndex + 1) % videoData.length;
         setCurrentVideoIndex(nextIndex);
-    }, [currentVideoIndex]);
+        
+        // Add a short vibration feedback on video change for mobile
+        if (isMobile && 'vibrate' in navigator) {
+            navigator.vibrate(100);
+        }
+    }, [currentVideoIndex, isMobile]);
     
     // Touch swipe handlers
     useEffect(() => {
@@ -125,6 +148,11 @@ function App() {
         const newState = !easterEggActive;
         setEasterEggActive(newState);
         
+        // Add stronger vibration when easter egg is activated on mobile
+        if (isMobile && 'vibrate' in navigator) {
+            navigator.vibrate(newState ? [200, 100, 200, 100, 400] : 100);
+        }
+        
         if (newState) {
             // Show message
             const easterEggMessage = document.createElement('div');
@@ -149,7 +177,7 @@ function App() {
                 document.body.removeChild(easterEggMessage);
             }, 3000);
         }
-    }, [easterEggActive]);
+    }, [easterEggActive, isMobile]);
     
     // Konami Code Handler
     useEffect(() => {
@@ -181,6 +209,11 @@ function App() {
         const handleUserInteraction = () => {
             setAutoplayEnabled(true);
             document.removeEventListener('click', handleUserInteraction);
+            
+            // Vibrate once when user first interacts, if on mobile
+            if (isMobile && 'vibrate' in navigator) {
+                navigator.vibrate(200);
+            }
         };
         
         // Add listener for first interaction
@@ -189,7 +222,7 @@ function App() {
         return () => {
             document.removeEventListener('click', handleUserInteraction);
         };
-    }, []);
+    }, [isMobile]);
     
     return (
         <div className={`App ${easterEggActive ? 'easter-egg-active' : ''}`}>
