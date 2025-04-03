@@ -428,11 +428,10 @@ function App() {
         }
     }, []);
 
-    // Enhanced touch swipe handlers with improved vibration
+    // Touch swipe handlers
     useEffect(() => {
         let touchStartY = 0;
         let touchEndY = 0;
-        let lastSwipeTime = 0;
 
         const handleTouchStart = (e) => {
             touchStartY = e.changedTouches[0].screenY;
@@ -445,31 +444,12 @@ function App() {
 
         const handleSwipe = () => {
             const swipeThreshold = 50;
-            const now = Date.now();
-            
-            // Ensure we don't process swipes too close together (debounce)
-            if (now - lastSwipeTime < 300) return;
-            
             if (touchStartY - touchEndY > swipeThreshold) {
                 // Swipe up - next video
-                
-                lastSwipeTime = now;
                 handleNextVideo();
-                
-                // Immediate vibration feedback for swipe up
-                if (isMobile && 'vibrate' in navigator) {
-                    navigator.vibrate([70, 30, 100]);
-                }
             } else if (touchEndY - touchStartY > swipeThreshold) {
                 // Swipe down - previous video
-                
-                lastSwipeTime = now;
                 handlePrevVideo();
-                
-                // Immediate vibration feedback for swipe down
-                if (isMobile && 'vibrate' in navigator) {
-                    navigator.vibrate([100, 30, 70]);
-                }
             }
         };
 
@@ -484,44 +464,6 @@ function App() {
             document.removeEventListener('touchend', handleTouchEnd, false);
         };
     }, [isMobile, handleNextVideo, handlePrevVideo]);
-
-    // Add play/pause vibration handlers
-    useEffect(() => {
-        const addVideoPlayPauseListeners = () => {
-            const videoElements = document.querySelectorAll('video');
-            
-            const handlePlay = () => {
-                if (isMobile && 'vibrate' in navigator) {
-                    navigator.vibrate([40, 20, 60]); // Short play pattern
-                }
-            };
-            
-            const handlePause = () => {
-                if (isMobile && 'vibrate' in navigator) {
-                    navigator.vibrate([60, 20, 40]); // Short pause pattern
-                }
-            };
-            
-            videoElements.forEach(video => {
-                video.addEventListener('play', handlePlay);
-                video.addEventListener('pause', handlePause);
-            });
-            
-            return () => {
-                videoElements.forEach(video => {
-                    video.removeEventListener('play', handlePlay);
-                    video.removeEventListener('pause', handlePause);
-                });
-            };
-        };
-        
-        // Add listeners with a slight delay to ensure videos are in the DOM
-        const timeoutId = setTimeout(() => {
-            addVideoPlayPauseListeners();
-        }, 1000);
-        
-        return () => clearTimeout(timeoutId);
-    }, [isMobile, currentVideoIndex]);
 
     // Disable pull-to-refresh on mobile within the app container
     useEffect(() => {
