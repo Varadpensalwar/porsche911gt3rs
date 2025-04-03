@@ -64,10 +64,8 @@ const VideoCard = ({
             video.addEventListener('ended', handleVideoEnd);
             video.addEventListener('play', () => {
                 setIsPlaying(true);
-                // Hide controls after playback starts
-                setTimeout(() => {
-                    setShowControls(false);
-                }, 1500);
+                // Immediately hide controls when playback starts
+                setShowControls(false);
             });
             video.addEventListener('pause', () => {
                 setIsPlaying(false);
@@ -130,6 +128,8 @@ const VideoCard = ({
                         console.error('Video playback error:', error);
                     });
                 }
+                // Hide controls when autoplaying
+                setShowControls(false);
             } else {
                 // Show controls if not autoplaying
                 setShowControls(true);
@@ -176,19 +176,18 @@ const VideoCard = ({
             if (video.paused) {
                 const playPromise = video.play();
                 if (playPromise !== undefined) {
-                    playPromise.catch(error => {
+                    playPromise.then(() => {
+                        // Immediately hide controls when play is successful
+                        setShowControls(false);
+                        setIsPlaying(true);
+                    }).catch(error => {
                         console.error('Video playback error:', error);
                     });
                 }
-                // Hide controls after a delay when playing
-                setTimeout(() => {
-                    if (!video.paused) {
-                        setShowControls(false);
-                    }
-                }, 1500);
             } else {
                 video.pause();
                 setShowControls(true);
+                setIsPlaying(false);
             }
         } else if (!isMobile) {
             // Switch to this card if not on mobile
