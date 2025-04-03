@@ -15,11 +15,14 @@ function App() {
     const [easterEggActive, setEasterEggActive] = useState(false);
     const [vibrationIntensity, setVibrationIntensity] = useState('medium');
     const [isVibrating, setIsVibrating] = useState(false);
+    const [showInstallPrompt, setShowInstallPrompt] = useState(false);
+    const [installPromptDismissed, setInstallPromptDismissed] = useState(false);
     const audioContextRef = useRef(null);
     const analyserRef = useRef(null);
     const sourceNodeRef = useRef(null);
     const animationFrameRef = useRef(null);
     const currentVideoRef = useRef(null);
+    const deferredPromptRef = useRef(null);
     
     // Track Konami Code for Easter Egg
     // Using useMemo to prevent recreation on each render
@@ -150,7 +153,7 @@ function App() {
         }
     }, [isMobile, vibrationIntensity, isVibrating]);
     
-    // Check if mobile
+    // Check if mobile and setup install prompt
     useEffect(() => {
         const checkMobile = () => {
             const isMobileDevice = window.innerWidth <= 768;
@@ -162,6 +165,27 @@ function App() {
         
         // Add listener for window resize
         window.addEventListener('resize', checkMobile);
+        
+        // Check if user has already dismissed the prompt
+        const promptDismissed = localStorage.getItem('installPromptDismissed');
+        if (promptDismissed) {
+            setInstallPromptDismissed(true);
+        }
+        
+        // Listen for beforeinstallprompt event
+        window.addEventListener('beforeinstallprompt', (e) => {
+            // Prevent Chrome 67 and earlier from automatically showing the prompt
+            e.preventDefault();
+            // Stash the event so it can be triggered later
+            deferredPromptRef.current = e;
+            
+            // Show our custom install prompt after a delay if not dismissed before
+            if (!promptDismissed) {
+                setTimeout(() => {
+                    setShowInstallPrompt(true);
+                }, 5000);
+            }
+        });
         
         return () => {
             window.removeEventListener('resize', checkMobile);
@@ -216,6 +240,53 @@ function App() {
             navigator.vibrate([120, 40, 80]);
         }
     }, [currentVideoIndex, isMobile]);
+    
+    // Handle Install Prompt
+    const handleInstallClick = () => {
+        // Hide our custom install prompt
+        setShowInstallPrompt(false);
+        
+        // Show the browser's install prompt
+        if (deferredPromptRef.current) {
+            deferredPromptRef.current.prompt();
+            deferredPromptRef.current.userChoice.then((choiceResult) => {
+                if (choiceResult.outcome === 'accepted') {
+                    console.log('User accepted the install prompt');
+                } else {
+                    console.log('User dismissed the install prompt');
+                }
+                deferredPromptRef.current = null;
+            });
+        }
+    };
+    
+    // Handle Close Install Prompt
+    const handleCloseInstallPrompt = () => {
+        setShowInstallPrompt(false);
+        setInstallPromptDismissed(true);
+        localStorage.setItem('installPromptDismissed', 'true');
+        
+        // Remember user's choice for 7 days
+        const expiryDate = new Date();
+        expiryDate.setDate(expiryDate.getDate() + 7);
+        localStorage.setItem('installPromptExpiry', expiryDate.toISOString());
+    };
+    
+    // Check if prompt should be shown again after expiry
+    useEffect(() => {
+        const expiryDateStr = localStorage.getItem('installPromptExpiry');
+        if (expiryDateStr) {
+            const expiryDate = new Date(expiryDateStr);
+            const currentDate = new Date();
+            
+            if (currentDate > expiryDate) {
+                // Reset dismissed state if expired
+                localStorage.removeItem('installPromptDismissed');
+                localStorage.removeItem('installPromptExpiry');
+                setInstallPromptDismissed(false);
+            }
+        }
+    }, []);
     
     // Touch swipe handlers
     useEffect(() => {
@@ -410,6 +481,32 @@ function App() {
                     />
                 ))}
             </div>
+            
+            {isMobile && showInstallPrompt && !installPromptDismissed && (
+                <div className="install-prompt">
+                    <div className="install-prompt-content">
+                        <div className="install-prompt-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 2v12M19 9l-7 7-7-7"/>
+                                <rect x="5" y="15" width="14" height="7" rx="2"/>
+                            </svg>
+                        </div>
+                        <div className="install-prompt-text">
+                            <h3>Add to Home Screen</h3>
+                            <p>Install this app on your device for the best experience!</p>
+                        </div>
+                        <div className="install-prompt-actions">
+                            <button className="install-btn" onClick={handleInstallClick}>Install Now</button>
+                            <button className="close-btn" onClick={handleCloseInstallPrompt}>
+                                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <line x1="18" y1="6" x2="6" y2="18"/>
+                                    <line x1="6" y1="6" x2="18" y2="18"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
             
             <EasterEggButton activateEasterEgg={activateEasterEgg} />
         </div>

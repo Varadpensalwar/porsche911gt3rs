@@ -309,3 +309,182 @@ video {
     transition: opacity 0.5s ease;
   }
 }
+
+
+
+
+
+
+
+
+/* Add this to your App.css file */
+
+/* Install Prompt Styles */
+.install-prompt {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 15px;
+  animation: slideUp 0.5s ease-out forwards;
+}
+
+.install-prompt-content {
+  background: linear-gradient(135deg, var(--neon-blue), var(--neon-purple));
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 5px 20px rgba(0, 0, 0, 0.3), 
+              0 0 15px var(--neon-blue),
+              0 0 5px var(--neon-purple);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+.install-prompt-content::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #fff, transparent);
+  animation: shimmer 2s infinite;
+}
+
+.install-prompt-icon {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 48px;
+  height: 48px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.install-prompt-icon svg {
+  width: 28px;
+  height: 28px;
+  color: white;
+}
+
+.install-prompt-text {
+  text-align: center;
+  margin-bottom: 16px;
+  color: white;
+}
+
+.install-prompt-text h3 {
+  margin: 0 0 6px;
+  font-size: 18px;
+  font-weight: 600;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.install-prompt-text p {
+  margin: 0;
+  font-size: 14px;
+  opacity: 0.9;
+}
+
+.install-prompt-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+}
+
+.install-btn {
+  background-color: white;
+  color: var(--neon-purple);
+  border: none;
+  border-radius: 20px;
+  padding: 10px 24px;
+  font-weight: bold;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+}
+
+.install-btn:hover, .install-btn:active {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.close-btn {
+  position: absolute;
+  top: -38px;
+  right: -5px;
+  background: transparent;
+  border: none;
+  width: 30px;
+  height: 30px;
+  cursor: pointer;
+  color: rgba(255, 255, 255, 0.7);
+  transition: color 0.3s ease;
+}
+
+.close-btn:hover {
+  color: white;
+}
+
+.close-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* Animations */
+@keyframes slideUp {
+  from {
+    transform: translateY(100%);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  50% {
+    transform: translateX(100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* For iOS Safari-specific instructions */
+@media (display-mode: browser) {
+  .ios-specific-instructions {
+    display: block;
+  }
+}
+
+@media (display-mode: standalone) {
+  .install-prompt {
+    display: none;
+  }
+}
+
+/* Make sure the prompt is displayed properly on different screen sizes */
+@media (max-width: 480px) {
+  .install-prompt {
+    padding: 10px;
+  }
+  
+  .install-prompt-text h3 {
+    font-size: 16px;
+  }
+  
+  .install-prompt-text p {
+    font-size: 13px;
+  }
+}
