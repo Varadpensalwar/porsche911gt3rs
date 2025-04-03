@@ -88,6 +88,32 @@ function App() {
         };
     }, [isMobile, handleNextVideo, handlePrevVideo]);
     
+    // Disable pull-to-refresh on mobile
+    useEffect(() => {
+        const preventPullToRefresh = (e) => {
+            // Prevent the default behavior when touch moves at the top of the page
+            if (window.scrollY === 0 && e.touches[0].screenY > touchStartY) {
+                e.preventDefault();
+            }
+        };
+        
+        let touchStartY = 0;
+        
+        const recordTouchStart = (e) => {
+            touchStartY = e.touches[0].screenY;
+        };
+        
+        if (isMobile) {
+            document.addEventListener('touchstart', recordTouchStart, { passive: false });
+            document.addEventListener('touchmove', preventPullToRefresh, { passive: false });
+        }
+        
+        return () => {
+            document.removeEventListener('touchstart', recordTouchStart);
+            document.removeEventListener('touchmove', preventPullToRefresh);
+        };
+    }, [isMobile]);
+    
     // Easter Egg Function
     const activateEasterEgg = useCallback(() => {
         const newState = !easterEggActive;
